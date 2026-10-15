@@ -1,38 +1,27 @@
 {
-  description = "PSI + rusage + EMA latency telemetry for load-aware schedulers";
-
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    flake-utils.url = "github:numtide/flake-utils";
-  };
+  inputs.nixpkgs.url = "https://channels.nixos.org/nixos-unstable/nixexprs.tar.zst";
 
   outputs = {
+    self,
     nixpkgs,
-    flake-utils,
-    ...
-  }:
-    flake-utils.lib.eachDefaultSystem (system: let
-      pkgs = import nixpkgs {inherit system;};
+  }: let
+    systems = ["x86_64-linux" "aarch64-linux"];
+    forEachSystem = nixpkgs.lib.genAttrs systems;
+    pkgsFor = system: nixpkgs.legacyPackages.${system};
+  in {
+    packages = forEachSystem (system: let
+      pkgs = pkgsFor system;
     in {
-      packages.default = pkgs.rustPlatform.buildRustPackage {
-        pname = "pulse";
-        version = "0.1.0";
-        src = ./.;
-        cargoLock.lockFile = ./Cargo.lock;
-        buildFeatures = ["rusage"];
-      };
-
-      checks.default = pkgs.rustPlatform.buildRustPackage {
-        pname = "pulse-tests";
-        version = "0.1.0";
-        src = ./.;
-        cargoLock.lockFile = ./Cargo.lock;
-        buildFeatures = ["rusage"];
-        doCheck = true;
-      };
-
-      devShells.default = pkgs.mkShell {
-        packages = with pkgs; [cargo rustc gcc rustfmt clippy taplo];
-      };
+      pulse = pkgs.callPackage ./nix/package.nix {};
+      default = self.packages.${system}.pulse;
     });
+
+    devShells = forEachSystem (system: let
+      pkgs = pkgsFor system;
+    in {
+      default = pkgs.callPackage ./nix/shell.nix {};
+    });
+
+    formatter = forEachSystem (system: (pkgsFor system).alejandra);
+  };
 }
