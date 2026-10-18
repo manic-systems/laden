@@ -121,11 +121,11 @@ mod tests {
   #[test]
   fn per_cpu_peak_uses_largest_window() {
     let load = Load {
-      load1: 1.0,
-      load5: 8.0,
-      load15: 2.0,
+      load1:   1.0,
+      load5:   8.0,
+      load15:  2.0,
       running: 1,
-      total: 1,
+      total:   1,
     };
     #[allow(clippy::cast_precision_loss)]
     let expected = 8.0 / cpu_count() as f64;

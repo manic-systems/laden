@@ -73,9 +73,9 @@ impl Psi {
   /// [`PsiError::Malformed`] on other read or parse failures.
   pub fn read() -> Result<Self, PsiError> {
     Ok(Self {
-      cpu: read_stat("/proc/pressure/cpu")?,
+      cpu:    read_stat("/proc/pressure/cpu")?,
       memory: read_stat("/proc/pressure/memory")?,
-      io: read_stat("/proc/pressure/io")?,
+      io:     read_stat("/proc/pressure/io")?,
     })
   }
 }
@@ -144,15 +144,12 @@ mod tests {
     let stat =
       parse_pressure("some avg10=0.00 avg60=0.00 avg300=0.00 total=12345")
         .expect("some line parses");
-    assert_eq!(
-      stat.some,
-      PsiLine {
-        avg10: 0.0,
-        avg60: 0.0,
-        avg300: 0.0,
-        total: 12345,
-      }
-    );
+    assert_eq!(stat.some, PsiLine {
+      avg10:  0.0,
+      avg60:  0.0,
+      avg300: 0.0,
+      total:  12345,
+    });
     assert!(stat.full.is_none());
   }
 

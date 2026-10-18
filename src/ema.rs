@@ -89,10 +89,10 @@ impl Health {
   #[must_use]
   pub fn with_alpha(alpha: f64) -> Self {
     Self {
-      latency: Ema::new(alpha),
+      latency:           Ema::new(alpha),
       consecutive_fails: 0,
-      degraded_at: DEGRADED_FAILS,
-      down_at: DOWN_FAILS,
+      degraded_at:       DEGRADED_FAILS,
+      down_at:           DOWN_FAILS,
     }
   }
 
@@ -106,10 +106,10 @@ impl Health {
   #[must_use]
   pub fn with_thresholds(degraded: u32, down: u32) -> Self {
     Self {
-      latency: Ema::new(DEFAULT_ALPHA),
+      latency:           Ema::new(DEFAULT_ALPHA),
       consecutive_fails: 0,
-      degraded_at: degraded,
-      down_at: down,
+      degraded_at:       degraded,
+      down_at:           down,
     }
   }
 
