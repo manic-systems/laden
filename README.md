@@ -1,28 +1,24 @@
 # laden
 
-PSI + RSS + EMA latency telemetry for load-aware schedulers.
+Pressure, load and memory signals for smart delegation.
 
-`laden` gathers the signals a scheduler needs to place work on the least-loaded
-host or agent. That covers kernel pressure-stall information, run-queue load
-averages, this process's peak memory footprint, and a smoothed view of upstream
-latency and health. Parsing is split from I/O, so every `/proc` format has a pure
-function you can drive from fixtures.
+## About
 
-The only dependency is `flub`, so pulling in `laden` costs almost nothing.
-
-- `psi` parses `/proc/pressure/{cpu,memory,io}`. Missing files (no
-  `CONFIG_PSI=y`, non-Linux hosts) surface as `psi::Error::Unsupported`.
-- `load` parses `/proc/loadavg`, and `cpu_count()` normalizes the averages per
-  core.
-- `rss` reports peak RSS via `getrusage` on Linux, Android, Apple, and the BSDs,
-  or `K32GetProcessMemoryInfo` on Windows. Elsewhere, including illumos and
-  Solaris, it returns `io::ErrorKind::Unsupported`.
-- `ema` provides an exponential moving average and a `Health` tracker that
-  derives `Active`, `Degraded`, or `Down` from consecutive failures.
+`laden` parses the kernel's pressure-stall information and run-queue load
+averages, reports this process's peak RSS, and tracks the health of upstream
+peers with an exponential moving average. The only dependency for `laden` is
+`flub`, used for the error derives.
 
 ## Usage
 
-Read the current pressure and load.
+You'll need Rust 1.97.0 (or above) and a Linux system. The latter is becasue
+`psi` and `load` read `/proc`, so laden Linux-only for now. At least in
+practice. When the file is missing, on a kernel without `CONFIG_PSI=y` or on
+another OS, both return `Error::Unsupported`.
+
+### API
+
+Read the current pressure and load:
 
 ```rust,no_run
 use laden::{load::Load, psi::Psi};
@@ -34,7 +30,9 @@ let load = Load::read()?;
 println!("1-min load per cpu = {:.2}", load.per_cpu_peak());
 ```
 
-Track upstream health from latency samples and failures.
+Track an upstream peer from latency samples and consecutive failures. With the
+default thresholds, status is `Degraded` after 3 consecutive failures and `Down`
+after 10:
 
 ```rust
 use laden::ema::{Alpha, Health, Status, Thresholds};
@@ -48,7 +46,12 @@ health.record_failure();
 assert_eq!(health.status(), Status::Degraded);
 ```
 
-Parse a fixture.
+`rss` reports peak RSS through `getrusage` on Linux, Android, Apple and the
+BSDs, and `K32GetProcessMemoryInfo` on Windows. On illumos and Solaris
+`getrusage` always reports a zero `ru_maxrss`, so `rss` returns
+`io::ErrorKind::Unsupported` there. `ema` is pure and platform-independent.
+
+Parse a fixture directly:
 
 ```rust
 use laden::load::parse_loadavg;
@@ -57,6 +60,18 @@ let load = parse_loadavg("0.52 0.58 0.59 2/1234 56789").unwrap();
 assert_eq!(load.running, 2);
 ```
 
+Parsing is split from I/O. `parse_pressure` and `parse_loadavg` are pure
+functions over file contents, so tests can run them against fixtures instead of
+`/proc`. The `Psi::read` and `Load::read` wrappers perform the file I/O.
+
 ## License
 
-EUPL-1.2. See [LICENSE](./LICENSE).
+<!--markdownlint-disable MD033 MD059-->
+
+[provided here]: https://interoperable-europe.ec.europa.eu/sites/default/files/custom-page/attachment/eupl_v1.2_en.pdf
+
+This project is made available under European Union Public Licence (EUPL)
+version 1.2. See [LICENSE](LICENSE) for more details on the exact conditions. An
+online copy is [provided here].
+
+<!--markdownlint-enable MD033 MD059-->
