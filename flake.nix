@@ -12,8 +12,8 @@
     packages = forEachSystem (system: let
       pkgs = pkgsFor system;
     in {
-      pulse = pkgs.callPackage ./nix/package.nix {};
-      default = self.packages.${system}.pulse;
+      laden = pkgs.callPackage ./nix/package.nix {};
+      default = self.packages.${system}.laden;
     });
 
     devShells = forEachSystem (system: let

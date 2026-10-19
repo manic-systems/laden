@@ -1,6 +1,6 @@
 //! PSI + rusage + EMA latency telemetry for load-aware schedulers.
 //!
-//! `pulse` gathers the signals a scheduler needs to place work on the
+//! `laden` gathers the signals a scheduler needs to place work on the
 //! least-loaded host or agent:
 //!
 //! - [`psi`] — kernel pressure-stall information from
@@ -18,7 +18,7 @@
 //! # Example
 //!
 //! ```
-//! use pulse::{Health, Status};
+//! use laden::{Health, Status};
 //!
 //! let mut health = Health::new();
 //! health.record_latency(12.0);

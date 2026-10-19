@@ -1,8 +1,8 @@
-# pulse
+# laden
 
 PSI + rusage + EMA latency telemetry for load-aware schedulers.
 
-`pulse` gathers the signals a scheduler needs to place work on the least-loaded
+`laden` gathers the signals a scheduler needs to place work on the least-loaded
 host or agent: kernel pressure-stall information, run-queue load averages, this
 process's peak memory footprint, and a smoothed view of upstream latency and
 health. Parsing is split from I/O, so every `/proc` format has a pure function
@@ -40,7 +40,7 @@ you can drive from fixtures.
 Read the current pressure and load:
 
 ```rust,no_run
-use pulse::{Load, Psi};
+use laden::{Load, Psi};
 
 let psi = Psi::read()?;
 println!("cpu some avg10 = {}", psi.cpu.some.avg10);
@@ -53,7 +53,7 @@ println!("1-min load per cpu = {:.2}", load.per_cpu_peak());
 Track upstream health from latency samples and failures:
 
 ```rust
-use pulse::{Health, Status};
+use laden::{Health, Status};
 
 let mut health = Health::with_thresholds(2, 5);
 health.record_latency(14.0);
@@ -67,7 +67,7 @@ assert_eq!(health.status(), Status::Degraded);
 Parse fixtures without touching `/proc`:
 
 ```rust
-use pulse::parse_loadavg;
+use laden::parse_loadavg;
 
 let load = parse_loadavg("0.52 0.58 0.59 2/1234 56789").unwrap();
 assert_eq!(load.running, 2);

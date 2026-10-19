@@ -158,6 +158,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "laden"
+version = "1.0.0"
+dependencies = [
+ "libc",
+ "proptest",
+ "thiserror",
+]
+
+[[package]]
 name = "libc"
 version = "0.2.190"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -226,15 +235,6 @@ dependencies = [
  "rusty-fork",
  "tempfile",
  "unarray",
-]
-
-[[package]]
-name = "pulse"
-version = "1.0.0"
-dependencies = [
- "libc",
- "proptest",
- "thiserror",
 ]
 
 [[package]]

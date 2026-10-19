@@ -3,7 +3,7 @@
   rustPlatform,
 }:
 rustPlatform.buildRustPackage (finalAttrs: {
-  pname = "pulse";
+  pname = "laden";
   version = "1.0.0";
   src = let
     fs = lib.fileset;
