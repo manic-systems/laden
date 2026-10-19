@@ -15,8 +15,9 @@ The only dependency is `flub`, making it a very lightweight dependency.
   `psi::Error::Unsupported`.
 - `load` parses `/proc/loadavg`, and `cpu_count()` normalizes the averages per
   core.
-- `rss` reports peak RSS via `getrusage`, or `K32GetProcessMemoryInfo` on
-  Windows.
+- `rss` reports peak RSS via `getrusage` on Linux, Android, Apple, and the BSDs,
+  or `K32GetProcessMemoryInfo` on Windows. Elsewhere, including illumos and
+  Solaris, it returns `io::ErrorKind::Unsupported`.
 - `ema` provides an exponential moving average and a `Health` tracker that
   derives `Active`, `Degraded`, or `Down` from consecutive failures.
 

@@ -23,8 +23,6 @@ pub fn max_rss_kb() -> io::Result<u64> {
    target_os = "dragonfly",
    target_os = "openbsd",
    target_os = "netbsd",
-   target_os = "illumos",
-   target_os = "solaris",
 ))]
 /// Peak RSS through `getrusage`.
 mod sys {
@@ -110,7 +108,8 @@ mod sys {
       }
       let rss = u64::try_from(usage.ru_maxrss)
          .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
-      // Linux reports ru_maxrss in kibibytes; macOS reports bytes.
+      // Linux and the BSDs report ru_maxrss in kibibytes, every Apple OS in
+      // bytes.
       if cfg!(target_vendor = "apple") {
          Ok(rss / 1024)
       } else {
@@ -190,10 +189,9 @@ mod sys {
    target_os = "dragonfly",
    target_os = "openbsd",
    target_os = "netbsd",
-   target_os = "illumos",
-   target_os = "solaris",
 )))]
-/// Peak RSS on platforms without a supported query.
+/// Peak RSS on platforms without a supported query, including illumos and
+/// Solaris, whose `getrusage` always reports a zero `ru_maxrss`.
 mod sys {
    use std::io;
 
