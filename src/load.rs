@@ -7,6 +7,20 @@ use std::{
    thread,
 };
 
+/// An error reading or parsing `/proc/loadavg`.
+#[derive(Debug, flub::Error)]
+pub enum Error {
+   /// `/proc/loadavg` is absent, as on a non-Linux host.
+   #[error("load averages are unavailable on this system")]
+   Unsupported,
+   /// Reading `/proc/loadavg` failed for a reason other than its absence.
+   #[error("reading /proc/loadavg")]
+   Io(#[source] io::Error),
+   /// The contents lacked a load average or the `running/total` pair.
+   #[error("malformed /proc/loadavg")]
+   Malformed,
+}
+
 /// A snapshot of the system load averages and scheduler run-queue counts.
 ///
 /// The three load figures are the kernel's 1-, 5-, and 15-minute exponentially
@@ -32,13 +46,16 @@ impl Load {
    ///
    /// # Errors
    ///
-   /// Returns the underlying [`io::Error`] when the file cannot be read, and an
-   /// [`io::ErrorKind::InvalidData`] error when its contents do not parse.
+   /// Returns [`Error::Unsupported`] when the file is absent, and
+   /// [`Error::Io`] or [`Error::Malformed`] on other read or parse failures.
    #[inline]
-   pub fn read() -> io::Result<Self> {
-      let text = fs::read_to_string("/proc/loadavg")?;
+   pub fn read() -> Result<Self, Error> {
+      let text = match fs::read_to_string("/proc/loadavg") {
+         Ok(text) => text,
+         Err(err) if err.kind() == io::ErrorKind::NotFound => return Err(Error::Unsupported),
+         Err(err) => return Err(Error::Io(err)),
+      };
       parse_loadavg(&text)
-         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "malformed /proc/loadavg"))
    }
 
    /// The highest of the three load averages normalized per logical CPU.
@@ -57,24 +74,30 @@ impl Load {
 /// Parse the contents of `/proc/loadavg`.
 ///
 /// The expected layout is `load1 load5 load15 running/total last_pid`; the
-/// trailing `last_pid` field is ignored. Returns `None` when the three load
-/// averages or the `running/total` pair are missing or unparseable.
+/// trailing `last_pid` field is ignored.
+///
+/// # Errors
+///
+/// Returns [`Error::Malformed`] when the three load averages or the
+/// `running/total` pair are missing or unparseable.
 #[inline]
-#[must_use]
 #[expect(clippy::similar_names, reason = "load1/load5/load15 mirror /proc")]
-pub fn parse_loadavg(text: &str) -> Option<Load> {
-   let mut fields = text.split_whitespace();
-   let load1 = fields.next()?.parse().ok()?;
-   let load5 = fields.next()?.parse().ok()?;
-   let load15 = fields.next()?.parse().ok()?;
-   let (running, total) = fields.next()?.split_once('/')?;
-   Some(Load {
-      load1,
-      load5,
-      load15,
-      running: running.parse().ok()?,
-      total: total.parse().ok()?,
-   })
+pub fn parse_loadavg(text: &str) -> Result<Load, Error> {
+   let parse = || {
+      let mut fields = text.split_whitespace();
+      let load1 = fields.next()?.parse().ok()?;
+      let load5 = fields.next()?.parse().ok()?;
+      let load15 = fields.next()?.parse().ok()?;
+      let (running, total) = fields.next()?.split_once('/')?;
+      Some(Load {
+         load1,
+         load5,
+         load15,
+         running: running.parse().ok()?,
+         total: total.parse().ok()?,
+      })
+   };
+   parse().ok_or(Error::Malformed)
 }
 
 /// The number of logical CPUs available to this process.
@@ -110,12 +133,15 @@ mod tests {
 
    #[test]
    fn rejects_missing_fields() {
-      assert!(parse_loadavg("0.10 0.20").is_none());
+      assert!(matches!(parse_loadavg("0.10 0.20"), Err(Error::Malformed)));
    }
 
    #[test]
    fn rejects_bad_proc_pair() {
-      assert!(parse_loadavg("0.10 0.20 0.30 notapair 1").is_none());
+      assert!(matches!(
+         parse_loadavg("0.10 0.20 0.30 notapair 1"),
+         Err(Error::Malformed)
+      ));
    }
 
    #[test]
