@@ -3,7 +3,7 @@
 use std::{fs, io};
 
 /// An error reading or parsing pressure-stall information.
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, flub::Error)]
 pub enum PsiError {
   /// The pressure files are absent — a kernel built without `CONFIG_PSI=y`, or
   /// a non-Linux host.

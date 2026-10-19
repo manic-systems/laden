@@ -8,7 +8,7 @@ process's peak memory footprint, and a smoothed view of upstream latency and
 health. Parsing is split from I/O, so every `/proc` format has a pure function
 you can drive from fixtures.
 
-- Zero required dependencies beyond `thiserror`; `libc` only when you opt into
+- Zero required dependencies beyond `flub`; `libc` only when you opt into
   `rusage`.
 - Pure parsers (`parse_pressure`, `parse_loadavg`) that never touch `/proc`.
 - Additive-only public API from 1.0 onward.

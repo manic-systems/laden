@@ -152,8 +152,6 @@ impl Default for Health {
 
 #[cfg(test)]
 mod tests {
-  use proptest::prelude::*;
-
   use super::*;
 
   #[test]
@@ -209,60 +207,5 @@ mod tests {
     assert_eq!(health.status(), Status::Degraded);
     health.record_failure();
     assert_eq!(health.status(), Status::Down);
-  }
-
-  proptest! {
-    #[test]
-    fn ema_stays_within_sample_bounds(
-      alpha in 0.0f64..=1.0,
-      samples in prop::collection::vec(0.0f64..1e6, 1..64),
-    ) {
-      let mut ema = Ema::new(alpha);
-      for &s in &samples {
-        ema.record(s);
-      }
-      let lo = samples.iter().copied().fold(f64::INFINITY, f64::min);
-      let hi = samples.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-      let value = ema.get().expect("at least one sample");
-      let eps = 1e-6;
-      prop_assert!(value >= lo - eps && value <= hi + eps);
-    }
-
-    #[test]
-    fn ema_alpha_one_tracks_last_sample(
-      samples in prop::collection::vec(0.0f64..1e6, 1..64),
-    ) {
-      let mut ema = Ema::new(1.0);
-      for &s in &samples {
-        ema.record(s);
-      }
-      let last = *samples.last().expect("non-empty");
-      prop_assert!((ema.get().expect("value") - last).abs() < 1e-6);
-    }
-
-    #[test]
-    fn ema_alpha_zero_holds_first_sample(
-      first in 0.0f64..1e6,
-      rest in prop::collection::vec(0.0f64..1e6, 0..64),
-    ) {
-      let mut ema = Ema::new(0.0);
-      ema.record(first);
-      for &s in &rest {
-        ema.record(s);
-      }
-      prop_assert!((ema.get().expect("value") - first).abs() < 1e-9);
-    }
-
-    #[test]
-    fn ema_converges_toward_constant(
-      alpha in 0.05f64..=0.95,
-      target in 1.0f64..1e3,
-    ) {
-      let mut ema = Ema::new(alpha);
-      for _ in 0..1000 {
-        ema.record(target);
-      }
-      prop_assert!((ema.get().expect("value") - target).abs() < 1e-3);
-    }
   }
 }

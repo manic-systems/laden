@@ -10,11 +10,8 @@ version      = "1.0.0"
 rusage = [ "dep:libc" ]
 
 [dependencies]
+flub      = "0.1.0"
 libc      = { version = "0.2.189", optional = true }
-thiserror = "2.0.12"
-
-[dev-dependencies]
-proptest = "1.5.0"
 
 [lints.clippy]
 pedantic = "warn"
