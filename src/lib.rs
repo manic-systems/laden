@@ -34,6 +34,6 @@ pub mod load;
 pub mod psi;
 #[cfg(feature = "rusage")] pub mod rusage;
 
-pub use ema::{Ema, Health, LatencyTracker, Status};
+pub use ema::{Ema, Health, Status};
 pub use load::{Load, cpu_count, parse_loadavg};
 pub use psi::{Psi, PsiError, PsiLine, PsiStat, parse_pressure};

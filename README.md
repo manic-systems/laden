@@ -25,7 +25,7 @@ you can drive from fixtures.
   `parse_loadavg` is pure, and `cpu_count()` normalizes the averages per core.
 - `rusage` *(feature `rusage`)* — `max_rss_kb()` reports peak RSS via
   `getrusage`, with the macOS bytes-to-kibibytes adjustment.
-- `ema` — `Ema` exponential moving average, plus a `Health` / `LatencyTracker`
+- `ema` — `Ema` exponential moving average, plus a `Health` tracker
   that smooths `record_latency` samples and derives a `Status`
   (`Active` / `Degraded` / `Down`) from consecutive failures.
 

@@ -14,14 +14,12 @@ const DOWN_FAILS: u32 = 10;
 /// heavily.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Ema {
-  /// The smoothing factor, in `0.0..=1.0`.
-  pub alpha: f64,
-  /// The current average, or `None` before the first sample.
-  pub value: Option<f64>,
+  alpha: f64,
+  value: Option<f64>,
 }
 
 impl Ema {
-  /// Create an empty average with the given smoothing factor.
+  /// Create an empty average with the given smoothing factor, in `0.0..=1.0`.
   #[must_use]
   pub fn new(alpha: f64) -> Self {
     Self { alpha, value: None }
@@ -72,9 +70,6 @@ pub struct Health {
   degraded_at:       u32,
   down_at:           u32,
 }
-
-/// Alias for [`Health`], named for its latency-tracking role.
-pub type LatencyTracker = Health;
 
 impl Health {
   /// Create a tracker with the default smoothing factor and failure
