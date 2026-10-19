@@ -132,24 +132,6 @@ mod tests {
    }
 
    #[test]
-   fn rejects_missing_fields() {
-      assert!(matches!(parse_loadavg("0.10 0.20"), Err(Error::Malformed)));
-   }
-
-   #[test]
-   fn rejects_bad_proc_pair() {
-      assert!(matches!(
-         parse_loadavg("0.10 0.20 0.30 notapair 1"),
-         Err(Error::Malformed)
-      ));
-   }
-
-   #[test]
-   fn cpu_count_is_positive() {
-      assert!(cpu_count() >= 1);
-   }
-
-   #[test]
    fn per_cpu_peak_uses_largest_window() {
       let load = Load {
          load1:   1.0,

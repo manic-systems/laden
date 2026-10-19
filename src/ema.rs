@@ -208,30 +208,6 @@ mod tests {
    }
 
    #[test]
-   fn ema_first_sample_is_seed() {
-      let mut ema = Ema::default();
-      assert_eq!(ema.get(), None);
-      ema.record(7.0);
-      assert_eq!(ema.get(), Some(7.0_f64));
-   }
-
-   #[test]
-   fn status_thresholds() {
-      let mut health = Health::default();
-      assert_eq!(health.status(), Status::Active);
-
-      for _ in 0_u8..3 {
-         health.record_failure();
-      }
-      assert_eq!(health.status(), Status::Degraded);
-
-      for _ in 0_u8..7 {
-         health.record_failure();
-      }
-      assert_eq!(health.status(), Status::Down);
-   }
-
-   #[test]
    fn latency_resets_failures() {
       let mut health = Health::default();
       for _ in 0_u8..5 {

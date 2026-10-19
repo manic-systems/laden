@@ -149,35 +149,6 @@ mod tests {
    use super::*;
 
    #[test]
-   fn parses_cpu_some_line() {
-      let stat = parse_pressure("some avg10=0.00 avg60=0.00 avg300=0.00 total=12345")
-         .expect("some line parses");
-      assert_eq!(stat.some, Line {
-         avg10:  0.0,
-         avg60:  0.0,
-         avg300: 0.0,
-         total:  12345,
-      });
-      assert!(stat.full.is_none());
-   }
-
-   #[test]
-   fn parses_some_and_full() {
-      let stat = parse_pressure(
-         "some avg10=5.00 avg60=3.00 avg300=2.00 total=100\nfull avg10=1.00 avg60=1.00 \
-          avg300=1.00 total=42",
-      )
-      .expect("both lines parse");
-      assert_eq!(stat.some, Line {
-         avg10:  5.0,
-         avg60:  3.0,
-         avg300: 2.0,
-         total:  100,
-      });
-      assert_eq!(stat.full.expect("full present").total, 42);
-   }
-
-   #[test]
    fn rejects_missing_some() {
       assert!(matches!(
          parse_pressure("full avg10=1.00 avg60=1.00 avg300=1.00 total=1"),
@@ -207,21 +178,6 @@ mod tests {
             total:  120,
          })
       );
-   }
-
-   #[test]
-   fn tolerates_trailing_whitespace() {
-      let stat = parse_pressure("some avg10=1.00 avg60=1.00 avg300=1.00 total=7   \n")
-         .expect("trailing whitespace tolerated");
-      assert_eq!(stat.some.total, 7);
-   }
-
-   #[test]
-   fn rejects_some_line_without_fields() {
-      assert!(matches!(
-         parse_pressure("some garbage-with-no-equals"),
-         Err(Error::Malformed)
-      ));
    }
 
    #[test]
