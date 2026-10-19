@@ -22,7 +22,7 @@
 //!    Status,
 //! };
 //!
-//! let mut health = Health::new();
+//! let mut health = Health::default();
 //! health.record_latency(12.0);
 //! health.record_latency(18.0);
 //! assert_eq!(health.status(), Status::Active);

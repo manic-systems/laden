@@ -37,9 +37,9 @@ println!("1-min load per cpu = {:.2}", load.per_cpu_peak());
 Track upstream health from latency samples and failures.
 
 ```rust
-use laden::ema::{Health, Status};
+use laden::ema::{Alpha, Health, Status, Thresholds};
 
-let mut health = Health::with_thresholds(2, 5);
+let mut health = Health::new(Alpha::DEFAULT, Thresholds { degraded: 2, down: 5 });
 health.record_latency(14.0);
 assert_eq!(health.status(), Status::Active);
 
