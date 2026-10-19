@@ -3,17 +3,15 @@
 //! `laden` gathers the signals a scheduler needs to place work on the
 //! least-loaded host or agent:
 //!
-//! - [`psi`] — kernel pressure-stall information from
+//! - [`psi`], kernel pressure-stall information from
 //!   `/proc/pressure/{cpu,memory,io}`.
-//! - [`load`] — the run-queue load averages from `/proc/loadavg`, plus a
-//!   [`cpu_count`] helper for normalizing them.
-//! - [`rusage`] *(feature `rusage`)* — this process's peak resident set size.
-//! - [`ema`] — an exponential moving average and a latency-driven [`Health`]
-//!   tracker for smoothing upstream round-trip samples.
+//! - [`load`], the run-queue load averages from `/proc/loadavg`.
+//! - `rusage` *(feature `rusage`)*, this process's peak resident set size.
+//! - [`ema`], an exponential moving average and a latency-driven [`Health`]
+//!   tracker.
 //!
-//! The parsing entry points ([`parse_pressure`], [`parse_loadavg`]) are pure
-//! functions over file contents, so they can be fed fixtures in tests without
-//! touching `/proc`.
+//! [`parse_pressure`] and [`parse_loadavg`] are pure functions over file
+//! contents, so they can be fed fixtures without touching `/proc`.
 //!
 //! # Example
 //!

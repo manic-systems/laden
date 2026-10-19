@@ -5,8 +5,8 @@ use std::{fs, io};
 /// An error reading or parsing pressure-stall information.
 #[derive(Debug, flub::Error)]
 pub enum PsiError {
-  /// The pressure files are absent — a kernel built without `CONFIG_PSI=y`, or
-  /// a non-Linux host.
+  /// The pressure files are absent, as on a kernel built without
+  /// `CONFIG_PSI=y` or a non-Linux host.
   #[error("pressure information is unavailable on this system")]
   Unsupported,
   /// Reading the file failed for a reason other than its absence.

@@ -49,7 +49,7 @@ impl Default for Ema {
 /// The coarse health classification derived from consecutive failures.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Status {
-  /// Below the degraded threshold — healthy.
+  /// Below the degraded threshold.
   Active,
   /// At or above the degraded threshold but below the down threshold.
   Degraded,

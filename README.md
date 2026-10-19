@@ -3,41 +3,26 @@
 PSI + rusage + EMA latency telemetry for load-aware schedulers.
 
 `laden` gathers the signals a scheduler needs to place work on the least-loaded
-host or agent: kernel pressure-stall information, run-queue load averages, this
-process's peak memory footprint, and a smoothed view of upstream latency and
-health. Parsing is split from I/O, so every `/proc` format has a pure function
-you can drive from fixtures.
+host or agent. That covers kernel pressure-stall information, run-queue load
+averages, this process's peak memory footprint, and a smoothed view of upstream
+latency and health. Parsing is split from I/O, so every `/proc` format has a pure
+function you can drive from fixtures.
 
-- Zero required dependencies beyond `flub`; `libc` only when you opt into
-  `rusage`.
-- Pure parsers (`parse_pressure`, `parse_loadavg`) that never touch `/proc`.
-- Additive-only public API from 1.0 onward.
-- MSRV: Rust 1.95.
+The only required dependency is `flub`. The `rusage` feature adds `libc`
+and holds the crate's only `unsafe`. The public API is additive-only from 1.0
+onward, and the MSRV is Rust 1.95.
 
-## Modules
-
-- `psi` — parse `/proc/pressure/{cpu,memory,io}` into `some`/`full` averages
-  (`avg10`/`avg60`/`avg300` + `total`). `Psi::read()` samples the live files;
-  `parse_pressure` is a pure function over the file contents. Missing files
-  (no `CONFIG_PSI=y`, non-Linux hosts) surface as `PsiError::Unsupported`.
-- `load` — parse `/proc/loadavg` into a `Load` (1/5/15-minute averages plus
-  `running`/`total` task counts). `Load::read()` samples the live file,
-  `parse_loadavg` is pure, and `cpu_count()` normalizes the averages per core.
-- `rusage` *(feature `rusage`)* — `max_rss_kb()` reports peak RSS via
-  `getrusage`, with the macOS bytes-to-kibibytes adjustment.
-- `ema` — `Ema` exponential moving average, plus a `Health` tracker
-  that smooths `record_latency` samples and derives a `Status`
-  (`Active` / `Degraded` / `Down`) from consecutive failures.
-
-## Features
-
-| Feature  | Default | Enables                                                              |
-| -------- | ------- | -------------------------------------------------------------------- |
-| `rusage` | no      | The `rusage` module and its `libc` dependency; the crate's only `unsafe`. |
+- `psi` parses `/proc/pressure/{cpu,memory,io}`. Missing files (possibly due to
+  no `CONFIG_PSI=y`, or on a non-Linux hosts) surface as `PsiError::Unsupported`.
+- `load` parses `/proc/loadavg`, and `cpu_count()` normalizes the averages per
+  core.
+- `rusage` *(feature `rusage`)* reports peak RSS via `getrusage`.
+- `ema` provides an exponential moving average and a `Health` tracker that
+  derives `Active`, `Degraded`, or `Down` from consecutive failures.
 
 ## Usage
 
-Read the current pressure and load:
+Read the current pressure and load.
 
 ```rust,no_run
 use laden::{Load, Psi};
@@ -50,7 +35,7 @@ println!("1-min load per cpu = {:.2}", load.per_cpu_peak());
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
-Track upstream health from latency samples and failures:
+Track upstream health from latency samples and failures.
 
 ```rust
 use laden::{Health, Status};
@@ -64,7 +49,7 @@ health.record_failure();
 assert_eq!(health.status(), Status::Degraded);
 ```
 
-Parse fixtures without touching `/proc`:
+Parse a fixture.
 
 ```rust
 use laden::parse_loadavg;
