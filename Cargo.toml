@@ -1,4 +1,5 @@
 [package]
+description  = "Pressure, load, and memory signals for placing work on the least-loaded host"
 edition      = "2024"
 license      = "EUPL-1.2"
 name         = "laden"
