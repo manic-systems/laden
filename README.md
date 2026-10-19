@@ -8,11 +8,10 @@ averages, this process's peak memory footprint, and a smoothed view of upstream
 latency and health. Parsing is split from I/O, so every `/proc` format has a pure
 function you can drive from fixtures.
 
-The only dependency is `flub`, making it a very lightweight dependency.
+The only dependency is `flub`, so pulling in `laden` costs almost nothing.
 
-- `psi` parses `/proc/pressure/{cpu,memory,io}`. Missing files (possibly due to
-  no `CONFIG_PSI=y`, or on a non-Linux hosts) surface as
-  `psi::Error::Unsupported`.
+- `psi` parses `/proc/pressure/{cpu,memory,io}`. Missing files (no
+  `CONFIG_PSI=y`, non-Linux hosts) surface as `psi::Error::Unsupported`.
 - `load` parses `/proc/loadavg`, and `cpu_count()` normalizes the averages per
   core.
 - `rss` reports peak RSS via `getrusage` on Linux, Android, Apple, and the BSDs,
