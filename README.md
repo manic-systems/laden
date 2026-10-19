@@ -1,6 +1,6 @@
 # laden
 
-PSI + rusage + EMA latency telemetry for load-aware schedulers.
+PSI + RSS + EMA latency telemetry for load-aware schedulers.
 
 `laden` gathers the signals a scheduler needs to place work on the least-loaded
 host or agent. That covers kernel pressure-stall information, run-queue load
@@ -8,15 +8,14 @@ averages, this process's peak memory footprint, and a smoothed view of upstream
 latency and health. Parsing is split from I/O, so every `/proc` format has a pure
 function you can drive from fixtures.
 
-The only required dependency is `flub`. The `rusage` feature adds `libc`
-and holds the crate's only `unsafe`. The public API is additive-only from 1.0
-onward, and the MSRV is Rust 1.95.
+The only dependency is `flub`, making it a very lightweight dependency.
 
 - `psi` parses `/proc/pressure/{cpu,memory,io}`. Missing files (possibly due to
   no `CONFIG_PSI=y`, or on a non-Linux hosts) surface as `PsiError::Unsupported`.
 - `load` parses `/proc/loadavg`, and `cpu_count()` normalizes the averages per
   core.
-- `rusage` *(feature `rusage`)* reports peak RSS via `getrusage`.
+- `rss` reports peak RSS via `getrusage`, or `K32GetProcessMemoryInfo` on
+  Windows.
 - `ema` provides an exponential moving average and a `Health` tracker that
   derives `Active`, `Degraded`, or `Down` from consecutive failures.
 

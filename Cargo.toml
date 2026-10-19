@@ -6,12 +6,8 @@ repository   = "https://github.com/manic-systems/laden"
 rust-version = "1.95.0"
 version      = "1.0.0"
 
-[features]
-rusage = [ "dep:libc" ]
-
 [dependencies]
 flub      = "0.1.0"
-libc      = { version = "0.2.189", optional = true }
 
 [lints.clippy]
 pedantic = "warn"

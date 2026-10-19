@@ -1,4 +1,4 @@
-//! PSI + rusage + EMA latency telemetry for load-aware schedulers.
+//! PSI + RSS + EMA latency telemetry for load-aware schedulers.
 //!
 //! `laden` gathers the signals a scheduler needs to place work on the
 //! least-loaded host or agent:
@@ -6,7 +6,7 @@
 //! - [`psi`], kernel pressure-stall information from
 //!   `/proc/pressure/{cpu,memory,io}`.
 //! - [`load`], the run-queue load averages from `/proc/loadavg`.
-//! - `rusage` *(feature `rusage`)*, this process's peak resident set size.
+//! - [`rss`], this process's peak resident set size.
 //! - [`ema`], an exponential moving average and a latency-driven [`Health`]
 //!   tracker.
 //!
@@ -30,8 +30,9 @@
 pub mod ema;
 pub mod load;
 pub mod psi;
-#[cfg(feature = "rusage")] pub mod rusage;
+pub mod rss;
 
 pub use ema::{Ema, Health, Status};
 pub use load::{Load, cpu_count, parse_loadavg};
 pub use psi::{Psi, PsiError, PsiLine, PsiStat, parse_pressure};
+pub use rss::max_rss_kb;
