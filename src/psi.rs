@@ -7,7 +7,7 @@ use std::{
 
 /// An error reading or parsing pressure-stall information.
 #[derive(Debug, flub::Error)]
-pub enum PsiError {
+pub enum Error {
    /// The pressure files are absent, as on a kernel built without
    /// `CONFIG_PSI=y` or a non-Linux host.
    #[error("pressure information is unavailable on this system")]
@@ -29,7 +29,7 @@ pub enum PsiError {
 /// over the trailing 10-, 60-, and 300-second windows, plus the lifetime total
 /// stall time in microseconds.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
-pub struct PsiLine {
+pub struct Line {
    /// Percentage of wall-clock time stalled over the last 10 seconds.
    pub avg10:  f64,
    /// Percentage of wall-clock time stalled over the last 60 seconds.
@@ -46,24 +46,24 @@ pub struct PsiLine {
 /// runnable task was stalled. The CPU file has no `full` line, so [`full`] is
 /// `None` there.
 ///
-/// [`full`]: PsiStat::full
+/// [`full`]: Stat::full
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct PsiStat {
+pub struct Stat {
    /// Pressure while at least one task was stalled on the resource.
-   pub some: PsiLine,
+   pub some: Line,
    /// Pressure while every runnable task was stalled; absent for CPU.
-   pub full: Option<PsiLine>,
+   pub full: Option<Line>,
 }
 
 /// Pressure across all three tracked resources.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Psi {
    /// CPU pressure (`some` only).
-   pub cpu:    PsiStat,
+   pub cpu:    Stat,
    /// Memory pressure.
-   pub memory: PsiStat,
+   pub memory: Stat,
    /// I/O pressure.
-   pub io:     PsiStat,
+   pub io:     Stat,
 }
 
 impl Psi {
@@ -71,10 +71,11 @@ impl Psi {
    ///
    /// # Errors
    ///
-   /// Returns [`PsiError::Unsupported`] when the files are absent (a kernel
-   /// without `CONFIG_PSI=y`, or a non-Linux host), and [`PsiError::Io`] or
-   /// [`PsiError::Malformed`] on other read or parse failures.
-   pub fn read() -> Result<Self, PsiError> {
+   /// Returns [`Error::Unsupported`] when the files are absent (a kernel
+   /// without `CONFIG_PSI=y`, or a non-Linux host), and [`Error::Io`] or
+   /// [`Error::Malformed`] on other read or parse failures.
+   #[inline]
+   pub fn read() -> Result<Self, Error> {
       Ok(Self {
          cpu:    read_stat("/proc/pressure/cpu")?,
          memory: read_stat("/proc/pressure/memory")?,
@@ -83,13 +84,15 @@ impl Psi {
    }
 }
 
-fn read_stat(path: &'static str) -> Result<PsiStat, PsiError> {
+/// Read and parse one `/proc/pressure/*` file, mapping its absence to
+/// [`Error::Unsupported`].
+fn read_stat(path: &'static str) -> Result<Stat, Error> {
    let text = match fs::read_to_string(path) {
       Ok(text) => text,
-      Err(e) if e.kind() == io::ErrorKind::NotFound => {
-         return Err(PsiError::Unsupported);
+      Err(err) if err.kind() == io::ErrorKind::NotFound => {
+         return Err(Error::Unsupported);
       },
-      Err(source) => return Err(PsiError::Io { path, source }),
+      Err(source) => return Err(Error::Io { path, source }),
    };
    parse_pressure(&text)
 }
@@ -98,25 +101,28 @@ fn read_stat(path: &'static str) -> Result<PsiStat, PsiError> {
 ///
 /// # Errors
 ///
-/// Returns [`PsiError::Malformed`] when the `some` line is absent or any line
+/// Returns [`Error::Malformed`] when the `some` line is absent or any line
 /// lacks one of `avg10`, `avg60`, `avg300`, or `total`.
-pub fn parse_pressure(text: &str) -> Result<PsiStat, PsiError> {
+#[inline]
+pub fn parse_pressure(text: &str) -> Result<Stat, Error> {
    let mut some = None;
    let mut full = None;
    for line in text.lines() {
       if let Some(rest) = line.strip_prefix("some ") {
-         some = Some(parse_line(rest).ok_or(PsiError::Malformed)?);
+         some = Some(parse_line(rest).ok_or(Error::Malformed)?);
       } else if let Some(rest) = line.strip_prefix("full ") {
-         full = Some(parse_line(rest).ok_or(PsiError::Malformed)?);
+         full = Some(parse_line(rest).ok_or(Error::Malformed)?);
       }
    }
-   Ok(PsiStat {
-      some: some.ok_or(PsiError::Malformed)?,
+   Ok(Stat {
+      some: some.ok_or(Error::Malformed)?,
       full,
    })
 }
 
-fn parse_line(fields: &str) -> Option<PsiLine> {
+/// Parse the `key=value` fields after a `some` or `full` prefix, or `None` if
+/// any of the four is missing or unparseable.
+fn parse_line(fields: &str) -> Option<Line> {
    let (mut avg10, mut avg60, mut avg300, mut total) = (None, None, None, None);
    for kv in fields.split_whitespace() {
       let Some((key, value)) = kv.split_once('=') else {
@@ -130,7 +136,7 @@ fn parse_line(fields: &str) -> Option<PsiLine> {
          _ => {},
       }
    }
-   Some(PsiLine {
+   Some(Line {
       avg10:  avg10?,
       avg60:  avg60?,
       avg300: avg300?,
@@ -140,17 +146,13 @@ fn parse_line(fields: &str) -> Option<PsiLine> {
 
 #[cfg(test)]
 mod tests {
-   // Fixtures use decimal literals that round-trip exactly to `f64`, so exact
-   // equality is the correct assertion here.
-   #![allow(clippy::float_cmp)]
-
    use super::*;
 
    #[test]
    fn parses_cpu_some_line() {
       let stat = parse_pressure("some avg10=0.00 avg60=0.00 avg300=0.00 total=12345")
          .expect("some line parses");
-      assert_eq!(stat.some, PsiLine {
+      assert_eq!(stat.some, Line {
          avg10:  0.0,
          avg60:  0.0,
          avg300: 0.0,
@@ -166,7 +168,12 @@ mod tests {
           avg300=1.00 total=42",
       )
       .expect("both lines parse");
-      assert_eq!(stat.some.avg10, 5.0);
+      assert_eq!(stat.some, Line {
+         avg10:  5.0,
+         avg60:  3.0,
+         avg300: 2.0,
+         total:  100,
+      });
       assert_eq!(stat.full.expect("full present").total, 42);
    }
 
@@ -174,7 +181,7 @@ mod tests {
    fn rejects_missing_some() {
       assert!(matches!(
          parse_pressure("full avg10=1.00 avg60=1.00 avg300=1.00 total=1"),
-         Err(PsiError::Malformed)
+         Err(Error::Malformed)
       ));
    }
 
@@ -185,10 +192,21 @@ mod tests {
           avg300=0.10 total=120",
       )
       .expect("memory lines parse");
-      assert_eq!(stat.some.avg10, 2.5);
-      let full = stat.full.expect("full present");
-      assert_eq!(full.avg300, 0.10);
-      assert_eq!(full.total, 120);
+      assert_eq!(stat.some, Line {
+         avg10:  2.5,
+         avg60:  1.25,
+         avg300: 0.75,
+         total:  900,
+      });
+      assert_eq!(
+         stat.full,
+         Some(Line {
+            avg10:  0.5,
+            avg60:  0.25,
+            avg300: 0.1,
+            total:  120,
+         })
+      );
    }
 
    #[test]
@@ -202,7 +220,7 @@ mod tests {
    fn rejects_some_line_without_fields() {
       assert!(matches!(
          parse_pressure("some garbage-with-no-equals"),
-         Err(PsiError::Malformed)
+         Err(Error::Malformed)
       ));
    }
 

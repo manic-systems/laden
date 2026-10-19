@@ -1,19 +1,43 @@
 [package]
-description  = "Pressure, load, and memory signals for placing work on the least-loaded host"
-edition      = "2024"
-license      = "EUPL-1.2"
 name         = "laden"
-repository   = "https://github.com/manic-systems/laden"
-rust-version = "1.95.0"
 version      = "1.0.0"
+edition      = "2024"
+rust-version = "1.98.0"
+description  = "Pressure, load, and memory signals for placing work on the least-loaded host"
+license      = "EUPL-1.2"
+repository   = "https://github.com/manic-systems/laden"
+keywords     = [ "psi", "load-average", "rss", "scheduler", "telemetry" ]
+categories   = [ "os", "development-tools::profiling" ]
+readme       = "README.md"
+include      = [ "src", "README.md", "LICENSE" ]
 
 [dependencies]
-flub      = "0.1.0"
+flub = "0.1.0"
 
 [lints.clippy]
-pedantic = "warn"
+cargo       = { level = "warn", priority = -1 }
+nursery     = { level = "warn", priority = -1 }
+pedantic    = { level = "warn", priority = -1 }
+restriction = { level = "warn", priority = -1 }
+
+blanket_clippy_restriction_lints = "allow"
+
+arbitrary_source_item_ordering  = "allow"
+else_if_without_else            = "allow"
+error_impl_error                = "allow"
+exhaustive_enums                = "allow"
+exhaustive_structs              = "allow"
+implicit_return                 = "allow"
+inline_modules                  = "allow"
+integer_division                = "allow"
+integer_division_remainder_used = "allow"
+question_mark_used              = "allow"
+separated_literal_suffix        = "allow"
+single_call_fn                  = "allow"
+std_instead_of_core             = "allow"
 
 [profile.release]
 codegen-units = 1
-lto           = true
-strip         = true
+lto           = "fat"
+opt-level     = 3
+strip         = "symbols"

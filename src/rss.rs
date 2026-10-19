@@ -8,7 +8,9 @@ use std::io;
 ///
 /// Returns the OS error when the platform query fails, an
 /// [`io::ErrorKind::Unsupported`] error on platforms without one, or an
-/// other-kind error when the kernel reports a negative `ru_maxrss`.
+/// [`io::ErrorKind::InvalidData`] error when the kernel reports a negative
+/// `ru_maxrss`.
+#[inline]
 pub fn max_rss_kb() -> io::Result<u64> {
    sys::max_rss_kb()
 }
@@ -24,6 +26,7 @@ pub fn max_rss_kb() -> io::Result<u64> {
    target_os = "illumos",
    target_os = "solaris",
 ))]
+/// Peak RSS through `getrusage`.
 mod sys {
    use std::{
       ffi::{
@@ -39,6 +42,7 @@ mod sys {
       all(target_os = "freebsd", not(target_arch = "x86")),
       all(target_os = "linux", target_arch = "riscv32"),
    ))]
+   /// This target's `time_t`.
    type TimeT = i64;
    #[cfg(not(any(
       target_os = "openbsd",
@@ -46,10 +50,13 @@ mod sys {
       all(target_os = "freebsd", not(target_arch = "x86")),
       all(target_os = "linux", target_arch = "riscv32"),
    )))]
+   /// This target's `time_t`.
    type TimeT = c_long;
 
+   /// This target's `suseconds_t`.
    #[cfg(any(target_vendor = "apple", target_os = "netbsd"))]
    type SusecondsT = i32;
+   /// This target's `suseconds_t`.
    #[cfg(all(target_os = "linux", target_arch = "riscv32"))]
    type SusecondsT = i64;
    #[cfg(not(any(
@@ -57,22 +64,34 @@ mod sys {
       target_os = "netbsd",
       all(target_os = "linux", target_arch = "riscv32"),
    )))]
+   /// This target's `suseconds_t`.
    type SusecondsT = c_long;
 
+   /// `struct timeval`.
+   #[derive(Default)]
    #[repr(C)]
    struct Timeval {
+      /// Whole seconds.
       _sec:  TimeT,
+      /// Remaining microseconds.
       _usec: SusecondsT,
    }
 
+   /// `struct rusage` through `ru_maxrss`, padded past every libc's full size.
+   #[derive(Default)]
    #[repr(C)]
    struct Rusage {
+      /// User CPU time.
       _utime:    Timeval,
+      /// System CPU time.
       _stime:    Timeval,
+      /// Peak resident set size.
       ru_maxrss: c_long,
+      /// The remaining counters and any libc-reserved tail.
       _rest:     [c_long; 32],
    }
 
+   /// Selects the calling process in `getrusage`.
    const RUSAGE_SELF: c_int = 0;
 
    unsafe extern "C" {
@@ -80,21 +99,17 @@ mod sys {
       fn getrusage(who: c_int, usage: *mut Rusage) -> c_int;
    }
 
+   /// Peak RSS in kibibytes from `ru_maxrss`.
    pub fn max_rss_kb() -> io::Result<u64> {
-      let mut usage = Rusage {
-         _utime:    Timeval { _sec: 0, _usec: 0 },
-         _stime:    Timeval { _sec: 0, _usec: 0 },
-         ru_maxrss: 0,
-         _rest:     [0; 32],
-      };
+      let mut usage = Rusage::default();
       // SAFETY: `Rusage` matches this target's `struct rusage` through
       // `ru_maxrss`, and `_rest` pads it past the largest layout any supported
       // libc defines, so `getrusage` writes only inside `usage`.
-      if unsafe { getrusage(RUSAGE_SELF, &raw mut usage) } == -1 {
+      if unsafe { getrusage(RUSAGE_SELF, &raw mut usage) } == -1_i32 {
          return Err(io::Error::last_os_error());
       }
       let rss = u64::try_from(usage.ru_maxrss)
-         .map_err(|_| io::Error::other("getrusage returned a negative ru_maxrss"))?;
+         .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
       // Linux reports ru_maxrss in kibibytes; macOS reports bytes.
       if cfg!(target_vendor = "apple") {
          Ok(rss / 1024)
@@ -105,17 +120,23 @@ mod sys {
 }
 
 #[cfg(windows)]
+/// Peak RSS through `K32GetProcessMemoryInfo`.
 mod sys {
    use std::{
       ffi::c_void,
       io,
    };
 
+   /// `PROCESS_MEMORY_COUNTERS`.
    #[repr(C)]
    struct ProcessMemoryCounters {
+      /// Size of this struct in bytes.
       cb:                    u32,
+      /// Page fault count.
       _page_fault_count:     u32,
+      /// Peak working set in bytes.
       peak_working_set_size: usize,
+      /// The remaining working-set, pool, and pagefile counters.
       _rest:                 [usize; 7],
    }
 
@@ -129,12 +150,15 @@ mod sys {
       ) -> i32;
    }
 
-   #[allow(
+   /// Size of [`ProcessMemoryCounters`] as Win32 expects it.
+   #[expect(
+      clippy::as_conversions,
       clippy::cast_possible_truncation,
       reason = "PROCESS_MEMORY_COUNTERS is 80 bytes at most"
    )]
    const CB: u32 = size_of::<ProcessMemoryCounters>() as u32;
 
+   /// Peak RSS in kibibytes from `PeakWorkingSetSize`.
    pub fn max_rss_kb() -> io::Result<u64> {
       let mut counters = ProcessMemoryCounters {
          cb:                    CB,
@@ -142,14 +166,18 @@ mod sys {
          peak_working_set_size: 0,
          _rest:                 [0; 7],
       };
-      // SAFETY: `ProcessMemoryCounters` matches `PROCESS_MEMORY_COUNTERS`, `cb`
-      // is its size, and `GetCurrentProcess` returns a pseudo-handle that needs
-      // no closing.
-      let ok = unsafe { K32GetProcessMemoryInfo(GetCurrentProcess(), &raw mut counters, CB) };
-      if ok == 0 {
+      // SAFETY: `GetCurrentProcess` takes no arguments and returns a
+      // pseudo-handle that needs no closing.
+      let process = unsafe { GetCurrentProcess() };
+      // SAFETY: `ProcessMemoryCounters` matches `PROCESS_MEMORY_COUNTERS` and
+      // `CB` is its size.
+      let ok = unsafe { K32GetProcessMemoryInfo(process, &raw mut counters, CB) };
+      if ok == 0_i32 {
          return Err(io::Error::last_os_error());
       }
-      Ok(counters.peak_working_set_size as u64 / 1024)
+      let peak = u64::try_from(counters.peak_working_set_size)
+         .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
+      Ok(peak / 1024)
    }
 }
 
@@ -165,9 +193,11 @@ mod sys {
    target_os = "illumos",
    target_os = "solaris",
 )))]
+/// Peak RSS on platforms without a supported query.
 mod sys {
    use std::io;
 
+   /// Always [`io::ErrorKind::Unsupported`].
    pub fn max_rss_kb() -> io::Result<u64> {
       Err(io::Error::new(
          io::ErrorKind::Unsupported,

@@ -3,7 +3,9 @@
 /// The smoothing factor used by [`Ema::default`] and [`Health::new`].
 pub const DEFAULT_ALPHA: f64 = 0.3;
 
+/// The failure run at which [`Health::new`] reports [`Status::Degraded`].
 const DEGRADED_FAILS: u32 = 3;
+/// The failure run at which [`Health::new`] reports [`Status::Down`].
 const DOWN_FAILS: u32 = 10;
 
 /// An exponential moving average.
@@ -14,33 +16,40 @@ const DOWN_FAILS: u32 = 10;
 /// heavily.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Ema {
+   /// Weight given to each new sample, in `0.0..=1.0`.
    alpha: f64,
+   /// The running average, or `None` before the first sample.
    value: Option<f64>,
 }
 
 impl Ema {
    /// Create an empty average with the given smoothing factor, in `0.0..=1.0`.
+   #[inline]
    #[must_use]
-   pub fn new(alpha: f64) -> Self {
+   pub const fn new(alpha: f64) -> Self {
       Self { alpha, value: None }
    }
 
    /// Blend `sample` into the running average, seeding it on the first call.
+   #[inline]
+   #[expect(clippy::float_arithmetic, reason = "an average is floating-point math")]
    pub fn record(&mut self, sample: f64) {
       self.value = Some(match self.value {
-         Some(prev) => self.alpha * sample + (1.0 - self.alpha) * prev,
+         Some(prev) => (1.0_f64 - self.alpha).mul_add(prev, self.alpha * sample),
          None => sample,
       });
    }
 
    /// The current average, or `None` if no sample has been recorded.
+   #[inline]
    #[must_use]
-   pub fn get(&self) -> Option<f64> {
+   pub const fn get(&self) -> Option<f64> {
       self.value
    }
 }
 
 impl Default for Ema {
+   #[inline]
    fn default() -> Self {
       Self::new(DEFAULT_ALPHA)
    }
@@ -65,24 +74,30 @@ pub enum Status {
 /// and [`status`](Health::status) maps the run length onto a [`Status`].
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Health {
+   /// Smoothed latency of successful observations.
    latency:           Ema,
+   /// Failures since the last success.
    consecutive_fails: u32,
+   /// Run length at which [`Status::Degraded`] begins.
    degraded_at:       u32,
+   /// Run length at which [`Status::Down`] begins.
    down_at:           u32,
 }
 
 impl Health {
    /// Create a tracker with the default smoothing factor and failure
    /// thresholds.
+   #[inline]
    #[must_use]
-   pub fn new() -> Self {
+   pub const fn new() -> Self {
       Self::with_alpha(DEFAULT_ALPHA)
    }
 
    /// Create a tracker with a custom smoothing factor and the default failure
    /// thresholds.
+   #[inline]
    #[must_use]
-   pub fn with_alpha(alpha: f64) -> Self {
+   pub const fn with_alpha(alpha: f64) -> Self {
       Self {
          latency:           Ema::new(alpha),
          consecutive_fails: 0,
@@ -99,8 +114,9 @@ impl Health {
    /// thresholds are used as given even if `down <= degraded`, in which case
    /// the tracker can step straight from [`Status::Active`] to
    /// [`Status::Down`].
+   #[inline]
    #[must_use]
-   pub fn with_thresholds(degraded: u32, down: u32) -> Self {
+   pub const fn with_thresholds(degraded: u32, down: u32) -> Self {
       Self {
          latency:           Ema::new(DEFAULT_ALPHA),
          consecutive_fails: 0,
@@ -110,31 +126,36 @@ impl Health {
    }
 
    /// Record a successful latency sample, resetting the failure run.
+   #[inline]
    pub fn record_latency(&mut self, sample: f64) {
       self.latency.record(sample);
       self.consecutive_fails = 0;
    }
 
    /// Record a failed observation, extending the failure run.
-   pub fn record_failure(&mut self) {
+   #[inline]
+   pub const fn record_failure(&mut self) {
       self.consecutive_fails = self.consecutive_fails.saturating_add(1);
    }
 
    /// The smoothed latency, or `None` before the first success.
+   #[inline]
    #[must_use]
-   pub fn latency(&self) -> Option<f64> {
+   pub const fn latency(&self) -> Option<f64> {
       self.latency.get()
    }
 
    /// The current consecutive-failure count.
+   #[inline]
    #[must_use]
-   pub fn consecutive_fails(&self) -> u32 {
+   pub const fn consecutive_fails(&self) -> u32 {
       self.consecutive_fails
    }
 
    /// Classify health from the current failure run.
+   #[inline]
    #[must_use]
-   pub fn status(&self) -> Status {
+   pub const fn status(&self) -> Status {
       if self.consecutive_fails >= self.down_at {
          Status::Down
       } else if self.consecutive_fails >= self.degraded_at {
@@ -146,6 +167,7 @@ impl Health {
 }
 
 impl Default for Health {
+   #[inline]
    fn default() -> Self {
       Self::new()
    }
@@ -161,7 +183,10 @@ mod tests {
       ema.record(100.0);
       ema.record(50.0);
       let value = ema.get().expect("value after two samples");
-      assert!((value - 85.0).abs() < 1.0e-9, "expected ~85.0, got {value}");
+      assert!(
+         (value - 85.0).abs() < 1.0e-9_f64,
+         "expected ~85.0, got {value}"
+      );
    }
 
    #[test]
@@ -169,7 +194,7 @@ mod tests {
       let mut ema = Ema::default();
       assert_eq!(ema.get(), None);
       ema.record(7.0);
-      assert_eq!(ema.get(), Some(7.0));
+      assert_eq!(ema.get(), Some(7.0_f64));
    }
 
    #[test]
@@ -177,12 +202,12 @@ mod tests {
       let mut health = Health::new();
       assert_eq!(health.status(), Status::Active);
 
-      for _ in 0..3 {
+      for _ in 0_u8..3 {
          health.record_failure();
       }
       assert_eq!(health.status(), Status::Degraded);
 
-      for _ in 0..7 {
+      for _ in 0_u8..7 {
          health.record_failure();
       }
       assert_eq!(health.status(), Status::Down);
@@ -191,7 +216,7 @@ mod tests {
    #[test]
    fn latency_resets_failures() {
       let mut health = Health::new();
-      for _ in 0..5 {
+      for _ in 0_u8..5 {
          health.record_failure();
       }
       assert_eq!(health.status(), Status::Degraded);

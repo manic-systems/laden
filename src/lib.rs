@@ -7,16 +7,17 @@
 //!   `/proc/pressure/{cpu,memory,io}`.
 //! - [`load`], the run-queue load averages from `/proc/loadavg`.
 //! - [`rss`], this process's peak resident set size.
-//! - [`ema`], an exponential moving average and a latency-driven [`Health`]
-//!   tracker.
+//! - [`ema`], an exponential moving average and a latency-driven
+//!   [`Health`](ema::Health) tracker.
 //!
-//! [`parse_pressure`] and [`parse_loadavg`] are pure functions over file
+//! [`parse_pressure`](psi::parse_pressure) and
+//! [`parse_loadavg`](load::parse_loadavg) are pure functions over file
 //! contents, so they can be fed fixtures without touching `/proc`.
 //!
 //! # Example
 //!
 //! ```
-//! use laden::{
+//! use laden::ema::{
 //!    Health,
 //!    Status,
 //! };
@@ -34,22 +35,3 @@ pub mod ema;
 pub mod load;
 pub mod psi;
 pub mod rss;
-
-pub use ema::{
-   Ema,
-   Health,
-   Status,
-};
-pub use load::{
-   Load,
-   cpu_count,
-   parse_loadavg,
-};
-pub use psi::{
-   Psi,
-   PsiError,
-   PsiLine,
-   PsiStat,
-   parse_pressure,
-};
-pub use rss::max_rss_kb;

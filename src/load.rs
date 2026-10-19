@@ -1,6 +1,7 @@
 //! Run-queue load averages from `/proc/loadavg`.
 
 use std::{
+   fs,
    io,
    num::NonZeroUsize,
    thread,
@@ -33,8 +34,9 @@ impl Load {
    ///
    /// Returns the underlying [`io::Error`] when the file cannot be read, and an
    /// [`io::ErrorKind::InvalidData`] error when its contents do not parse.
+   #[inline]
    pub fn read() -> io::Result<Self> {
-      let text = std::fs::read_to_string("/proc/loadavg")?;
+      let text = fs::read_to_string("/proc/loadavg")?;
       parse_loadavg(&text)
          .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "malformed /proc/loadavg"))
    }
@@ -43,12 +45,12 @@ impl Load {
    ///
    /// This is the worst-case saturation over the sampling windows: `1.0` means
    /// the run queue, at its busiest window, held one runnable task per core.
+   #[inline]
    #[must_use]
+   #[expect(clippy::float_arithmetic, reason = "load averages are floating-point")]
    pub fn per_cpu_peak(&self) -> f64 {
       let peak = self.load1.max(self.load5).max(self.load15);
-      #[expect(clippy::cast_precision_loss, reason = "CPU counts are far below 2^52")]
-      let cpus = cpu_count() as f64;
-      peak / cpus
+      peak / f64::from(u32::try_from(cpu_count()).unwrap_or(u32::MAX))
    }
 }
 
@@ -57,6 +59,7 @@ impl Load {
 /// The expected layout is `load1 load5 load15 running/total last_pid`; the
 /// trailing `last_pid` field is ignored. Returns `None` when the three load
 /// averages or the `running/total` pair are missing or unparseable.
+#[inline]
 #[must_use]
 #[expect(clippy::similar_names, reason = "load1/load5/load15 mirror /proc")]
 pub fn parse_loadavg(text: &str) -> Option<Load> {
@@ -79,6 +82,7 @@ pub fn parse_loadavg(text: &str) -> Option<Load> {
 /// Reflects the effective parallelism (honouring cgroup and affinity limits
 /// where the platform exposes them). Falls back to `1` when the count cannot be
 /// determined, so the result is always usable as a divisor.
+#[inline]
 #[must_use]
 pub fn cpu_count() -> usize {
    thread::available_parallelism().map_or(1, NonZeroUsize::get)
@@ -91,9 +95,9 @@ mod tests {
    #[test]
    fn parses_canonical_line() {
       let load = parse_loadavg("0.52 0.58 0.59 2/1234 56789").expect("canonical line");
-      assert!((load.load1 - 0.52).abs() < 1.0e-9);
-      assert!((load.load5 - 0.58).abs() < 1.0e-9);
-      assert!((load.load15 - 0.59).abs() < 1.0e-9);
+      assert!((load.load1 - 0.52).abs() < 1.0e-9_f64);
+      assert!((load.load5 - 0.58).abs() < 1.0e-9_f64);
+      assert!((load.load15 - 0.59).abs() < 1.0e-9_f64);
       assert_eq!(load.running, 2);
       assert_eq!(load.total, 1234);
    }
@@ -128,8 +132,7 @@ mod tests {
          running: 1,
          total:   1,
       };
-      #[allow(clippy::cast_precision_loss)]
-      let expected = 8.0 / cpu_count() as f64;
-      assert!((load.per_cpu_peak() - expected).abs() < 1.0e-9);
+      let cpus = f64::from(u32::try_from(cpu_count()).expect("CPU count fits in u32"));
+      assert!((load.per_cpu_peak() - 8.0_f64 / cpus).abs() < 1.0e-9_f64);
    }
 }
