@@ -17,8 +17,8 @@ pub enum PsiError {
     /// The underlying I/O error.
     source: io::Error,
   },
-  /// The file was read but lacked the mandatory `some` line.
-  #[error("malformed pressure data: no \"some\" line")]
+  /// The file lacked a `some` line, or a line was missing a field.
+  #[error("malformed pressure data")]
   Malformed,
 }
 
@@ -95,15 +95,16 @@ fn read_stat(path: &'static str) -> Result<PsiStat, PsiError> {
 ///
 /// # Errors
 ///
-/// Returns [`PsiError::Malformed`] when the required `some` line is absent.
+/// Returns [`PsiError::Malformed`] when the `some` line is absent or any line
+/// lacks one of `avg10`, `avg60`, `avg300`, or `total`.
 pub fn parse_pressure(text: &str) -> Result<PsiStat, PsiError> {
   let mut some = None;
   let mut full = None;
   for line in text.lines() {
     if let Some(rest) = line.strip_prefix("some ") {
-      some = parse_line(rest);
+      some = Some(parse_line(rest).ok_or(PsiError::Malformed)?);
     } else if let Some(rest) = line.strip_prefix("full ") {
-      full = parse_line(rest);
+      full = Some(parse_line(rest).ok_or(PsiError::Malformed)?);
     }
   }
   Ok(PsiStat {
@@ -113,22 +114,25 @@ pub fn parse_pressure(text: &str) -> Result<PsiStat, PsiError> {
 }
 
 fn parse_line(fields: &str) -> Option<PsiLine> {
-  let mut line = PsiLine::default();
-  let mut seen = false;
+  let (mut avg10, mut avg60, mut avg300, mut total) = (None, None, None, None);
   for kv in fields.split_whitespace() {
     let Some((key, value)) = kv.split_once('=') else {
       continue;
     };
     match key {
-      "avg10" => line.avg10 = value.parse().ok()?,
-      "avg60" => line.avg60 = value.parse().ok()?,
-      "avg300" => line.avg300 = value.parse().ok()?,
-      "total" => line.total = value.parse().ok()?,
-      _ => continue,
+      "avg10" => avg10 = Some(value.parse().ok()?),
+      "avg60" => avg60 = Some(value.parse().ok()?),
+      "avg300" => avg300 = Some(value.parse().ok()?),
+      "total" => total = Some(value.parse().ok()?),
+      _ => {},
     }
-    seen = true;
   }
-  seen.then_some(line)
+  Some(PsiLine {
+    avg10:  avg10?,
+    avg60:  avg60?,
+    avg300: avg300?,
+    total:  total?,
+  })
 }
 
 #[cfg(test)]
@@ -191,14 +195,6 @@ mod tests {
       parse_pressure("some avg10=1.00 avg60=1.00 avg300=1.00 total=7   \n")
         .expect("trailing whitespace tolerated");
     assert_eq!(stat.some.total, 7);
-  }
-
-  #[test]
-  fn missing_total_defaults_to_zero() {
-    let stat = parse_pressure("some avg10=1.00 avg60=1.00 avg300=1.00")
-      .expect("partial some line still parses");
-    assert_eq!(stat.some.total, 0);
-    assert_eq!(stat.some.avg10, 1.0);
   }
 
   #[test]
