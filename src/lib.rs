@@ -16,7 +16,10 @@
 //! # Example
 //!
 //! ```
-//! use laden::{Health, Status};
+//! use laden::{
+//!    Health,
+//!    Status,
+//! };
 //!
 //! let mut health = Health::new();
 //! health.record_latency(12.0);
@@ -32,7 +35,21 @@ pub mod load;
 pub mod psi;
 pub mod rss;
 
-pub use ema::{Ema, Health, Status};
-pub use load::{Load, cpu_count, parse_loadavg};
-pub use psi::{Psi, PsiError, PsiLine, PsiStat, parse_pressure};
+pub use ema::{
+   Ema,
+   Health,
+   Status,
+};
+pub use load::{
+   Load,
+   cpu_count,
+   parse_loadavg,
+};
+pub use psi::{
+   Psi,
+   PsiError,
+   PsiLine,
+   PsiStat,
+   parse_pressure,
+};
 pub use rss::max_rss_kb;
