@@ -43,7 +43,10 @@ impl Load {
   #[must_use]
   pub fn per_cpu_peak(&self) -> f64 {
     let peak = self.load1.max(self.load5).max(self.load15);
-    #[allow(clippy::cast_precision_loss)]
+    #[expect(
+      clippy::cast_precision_loss,
+      reason = "CPU counts are far below 2^52"
+    )]
     let cpus = cpu_count() as f64;
     peak / cpus
   }
@@ -55,7 +58,7 @@ impl Load {
 /// trailing `last_pid` field is ignored. Returns `None` when the three load
 /// averages or the `running/total` pair are missing or unparseable.
 #[must_use]
-#[allow(clippy::similar_names)]
+#[expect(clippy::similar_names, reason = "load1/load5/load15 mirror /proc")]
 pub fn parse_loadavg(text: &str) -> Option<Load> {
   let mut fields = text.split_whitespace();
   let load1 = fields.next()?.parse().ok()?;
