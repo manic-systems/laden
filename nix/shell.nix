@@ -1,28 +1,28 @@
 {
   mkShell,
-  cargo,
   rustc,
+  cargo,
+  rust-analyzer,
   rustfmt,
   clippy,
-  wild,
-  rust-analyzer,
-  cargo-nextest,
-}: let
-  inherit (rustc) llvmPackages;
-in
-  mkShell {
-    strictDeps = true;
-    nativeBuildInputs = [
-      cargo
-      rustc
+  taplo,
+  rustPlatform,
+  extraPackages ? [ ],
+}:
+mkShell {
+  name = "laden";
 
-      wild
-      llvmPackages.clang
+  strictDeps = true;
 
-      (rustfmt.override {asNightly = true;})
-      clippy
-      rust-analyzer
+  nativeBuildInputs = [
+    rustc
+    cargo
+    rust-analyzer
+    rustfmt
+    clippy
+    taplo
+  ]
+  ++ extraPackages;
 
-      cargo-nextest
-    ];
-  }
+  env.RUST_SRC_PATH = "${rustPlatform.rustLibSrc}";
+}

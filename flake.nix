@@ -1,27 +1,47 @@
 {
-  inputs.nixpkgs.url = "https://channels.nixos.org/nixos-unstable/nixexprs.tar.zst";
+  inputs = {
+    nixpkgs.url = "https://channels.nixos.org/nixos-unstable/nixexprs.tar.zst";
 
-  outputs = {
-    self,
-    nixpkgs,
-  }: let
-    systems = ["x86_64-linux" "aarch64-linux"];
-    forEachSystem = nixpkgs.lib.genAttrs systems;
-    pkgsFor = system: nixpkgs.legacyPackages.${system};
-  in {
-    packages = forEachSystem (system: let
-      pkgs = pkgsFor system;
-    in {
-      laden = pkgs.callPackage ./nix/package.nix {};
-      default = self.packages.${system}.laden;
-    });
-
-    devShells = forEachSystem (system: let
-      pkgs = pkgsFor system;
-    in {
-      default = pkgs.callPackage ./nix/shell.nix {};
-    });
-
-    formatter = forEachSystem (system: (pkgsFor system).alejandra);
+    fenix = {
+      url = "github:nix-community/fenix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
+
+  outputs =
+    { self, ... }@inputs:
+    let
+      inherit (inputs) nixpkgs fenix;
+      inherit (nixpkgs) lib;
+      forAllSystems = lib.genAttrs (lib.systems.doubles.linux ++ lib.systems.doubles.darwin);
+      pkgsFor = system: nixpkgs.legacyPackages.${system} or (import nixpkgs { inherit system; });
+    in
+    {
+      packages = forAllSystems (
+        system:
+        let
+          laden = (pkgsFor system).callPackage ./nix/package.nix { };
+        in
+        {
+          inherit laden;
+          default = laden;
+        }
+      );
+
+      devShells = forAllSystems (
+        system:
+        let
+          pkgs = pkgsFor system;
+        in
+        {
+          default = pkgs.callPackage ./nix/shell.nix {
+            rustfmt = fenix.packages.${system}.latest.rustfmt or pkgs.rustfmt;
+          };
+        }
+      );
+
+      checks = forAllSystems (system: {
+        laden = self.packages.${system}.laden;
+      });
+    };
 }

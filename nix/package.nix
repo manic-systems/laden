@@ -2,22 +2,35 @@
   lib,
   rustPlatform,
 }:
-rustPlatform.buildRustPackage (finalAttrs: {
+let
+  cargoTOML = (lib.importTOML ../Cargo.toml).package;
+in
+rustPlatform.buildRustPackage {
   pname = "laden";
-  inherit ((lib.importTOML ../Cargo.toml).package) version;
-  src = let
-    fs = lib.fileset;
-    s = ../.;
-  in
+  inherit (cargoTOML) version;
+
+  src =
+    let
+      fs = lib.fileset;
+      s = ../.;
+    in
     fs.toSource {
       root = s;
       fileset = fs.unions [
         (s + /src)
-
-        (s + /Cargo.toml)
         (s + /Cargo.lock)
+        (s + /Cargo.toml)
       ];
     };
 
-  cargoLock.lockFile = "${finalAttrs.src}/Cargo.lock";
-})
+  cargoLock.lockFile = ../Cargo.lock;
+
+  strictDeps = true;
+  enableParallelBuilding = true;
+
+  meta = {
+    inherit (cargoTOML) description;
+    license = lib.licenses.eupl12;
+    maintainers = with lib.maintainers; [ amaanq ];
+  };
+}
