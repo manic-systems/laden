@@ -13,7 +13,7 @@ pub enum Error {
    #[error("pressure information is unavailable on this system")]
    Unsupported,
    /// Reading the file failed for a reason other than its absence.
-   #[error("reading {path}: {source}")]
+   #[error("reading {path}")]
    Io {
       /// The `/proc/pressure/*` path that failed to read.
       path:   &'static str,
