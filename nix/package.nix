@@ -4,7 +4,7 @@
 }:
 rustPlatform.buildRustPackage (finalAttrs: {
   pname = "laden";
-  version = "1.0.0";
+  inherit ((lib.importTOML ../Cargo.toml).package) version;
   src = let
     fs = lib.fileset;
     s = ../.;
